@@ -18,6 +18,8 @@ class dz_authnum {
 	//字体文件
 	private $fontfile = "data/ttf/comic_sans_ms.ttf";
 	
+	private $randset;
+	
 	/**
 	 * 可选设置：验证码类型、干扰点、干扰线、Y轴随机
 	 * 设为 false 表示不启用
@@ -41,6 +43,17 @@ class dz_authnum {
 			$this->randandgle[$i] = rand(0,50) - 25;
 			$this->randsize[$i] = rand(18,23);
 		}
+		
+		//config rand alphe set
+		$an1 = 'abcdefghijklmnopqrstuvwxyz';
+		$an2 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+		$an3 = '0123456789';
+		$this->randset = "";
+		if ($this->ext_num_type == '') $this->randset = $an1.$an2.$an3;
+		if ($this->ext_num_type == 1) $this->randset = $an1;
+		if ($this->ext_num_type == 2) $this->randset = $an2;
+		if ($this->ext_num_type == 3) $this->randset = $an3;
+		
 	}
 	// 设置图片背景颜色，带方块会椭圆
 	function set_bgcolor () {
@@ -69,17 +82,10 @@ class dz_authnum {
 	}
 	// 获得任意位数的随机码
 	function get_randnum () {
-		$an1 = 'abcdefghijklmnopqrstuvwxyz';
-		$an2 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-		$an3 = '0123456789';
-		$randnum = "";
-		if ($this->ext_num_type == '') $str = $an1.$an2.$an3;
-		if ($this->ext_num_type == 1) $str = $an1;
-		if ($this->ext_num_type == 2) $str = $an2;
-		if ($this->ext_num_type == 3) $str = $an3;
+		$randnum = '';
 		for ($i = 0; $i < $this->len; $i++) {
-			$start = rand(1,strlen($str) - 1);
-			$randnum .= substr($str,$start,1);
+			$start = rand(1,strlen($this->randset) - 1);
+			$randnum .= substr($this->randset,$start,1);
 		}
 		$this->randnum = $randnum;
 		$_SESSION['an'] = strtolower($this->randnum);
@@ -118,7 +124,7 @@ class dz_authnum {
 	}
 }//end class
 
-$an = new dz_authnum(6,180,50);
+$an = new dz_authnum(4,120,50);
 $an->ext_num_type='';
 $an->ext_pixel = true; //干扰点
 $an->ext_line = true; //干扰线
