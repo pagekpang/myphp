@@ -1,133 +1,321 @@
 <?php
 session_start();
+
+Class GIFEncoder {
+	var $GIF = "GIF89a";                /* GIF header 6 bytes        */
+	var $VER = "GIFEncoder V2.06";        /* Encoder version                */
+
+	var $BUF = Array ( );
+	var $LOP =  0;
+	var $DIS =  2;
+	var $COL = -1;
+	var $IMG = -1;
+
+	var $ERR = Array (
+			'ERR00' =>"Does not supported function for only one image!",
+			'ERR01' =>"Source is not a GIF image!",
+			'ERR02' =>"Unintelligible flag ",
+			'ERR03' =>"Could not make animation from animated GIF source",
+	);
+
+	/*
+	 :::::::::::::::::::::::::::::::::::::::::::::::::::
+	::
+	::        GIFEncoder...
+	::
+	*/
+	function GIFEncoder        (
+			$GIF_src, $GIF_dly, $GIF_lop, $GIF_dis,
+			$GIF_red, $GIF_grn, $GIF_blu, $GIF_mod
+	) {
+		if ( ! is_array ( $GIF_src ) && ! is_array ( $GIF_tim ) ) {
+			printf        ( "%s: %s", $this->VER, $this->ERR [ 'ERR00' ] );
+			exit        ( 0 );
+		}
+		$this->LOP = ( $GIF_lop > -1 ) ? $GIF_lop : 0;
+		$this->DIS = ( $GIF_dis > -1 ) ? ( ( $GIF_dis < 3 ) ? $GIF_dis : 3 ) : 2;
+		$this->COL = ( $GIF_red > -1 && $GIF_grn > -1 && $GIF_blu > -1 ) ?
+		( $GIF_red | ( $GIF_grn << 8 ) | ( $GIF_blu << 16 ) ) : -1;
+
+		for ( $i = 0; $i < count ( $GIF_src ); $i++ ) {
+			if ( strToLower ( $GIF_mod ) == "url" ) {
+				$this->BUF [ ] = fread ( fopen ( $GIF_src [ $i ], "rb" ), filesize ( $GIF_src [ $i ] ) );
+			}
+			else if ( strToLower ( $GIF_mod ) == "bin" ) {
+				$this->BUF [ ] = $GIF_src [ $i ];
+			}
+			else {
+				printf        ( "%s: %s ( %s )!", $this->VER, $this->ERR [ 'ERR02' ], $GIF_mod );
+				exit        ( 0 );
+			}
+			if ( substr ( $this->BUF [ $i ], 0, 6 ) != "GIF87a" && substr ( $this->BUF [ $i ], 0, 6 ) != "GIF89a" ) {
+				printf        ( "%s: %d %s", $this->VER, $i, $this->ERR [ 'ERR01' ] );
+				exit        ( 0 );
+			}
+			for ( $j = ( 13 + 3 * ( 2 << ( ord ( $this->BUF [ $i ] { 10 } ) & 0x07 ) ) ), $k = TRUE; $k; $j++ ) {
+				switch ( $this->BUF [ $i ] { $j } ) {
+					case "!":
+						if ( ( substr ( $this->BUF [ $i ], ( $j + 3 ), 8 ) ) == "NETSCAPE" ) {
+							printf        ( "%s: %s ( %s source )!", $this->VER, $this->ERR [ 'ERR03' ], ( $i + 1 ) );
+							exit        ( 0 );
+						}
+						break;
+					case ";":
+						$k = FALSE;
+						break;
+				}
+			}
+		}
+		GIFEncoder::GIFAddHeader ( );
+		for ( $i = 0; $i < count ( $this->BUF ); $i++ ) {
+			GIFEncoder::GIFAddFrames ( $i, $GIF_dly [ $i ] );
+		}
+		GIFEncoder::GIFAddFooter ( );
+	}
+	/*
+	 :::::::::::::::::::::::::::::::::::::::::::::::::::
+	::
+	::        GIFAddHeader...
+	::
+	*/
+	function GIFAddHeader ( ) {
+		$cmap = 0;
+
+		if ( ord ( $this->BUF [ 0 ] { 10 } ) & 0x80 ) {
+			$cmap = 3 * ( 2 << ( ord ( $this->BUF [ 0 ] { 10 } ) & 0x07 ) );
+
+			$this->GIF .= substr ( $this->BUF [ 0 ], 6, 7                );
+			$this->GIF .= substr ( $this->BUF [ 0 ], 13, $cmap        );
+			$this->GIF .= "!\377\13NETSCAPE2.0\3\1" . GIFEncoder::GIFWord ( $this->LOP ) . "\0";
+		}
+	}
+	/*
+	 :::::::::::::::::::::::::::::::::::::::::::::::::::
+	::
+	::        GIFAddFrames...
+	::
+	*/
+	function GIFAddFrames ( $i, $d ) {
+
+		$Locals_str = 13 + 3 * ( 2 << ( ord ( $this->BUF [ $i ] { 10 } ) & 0x07 ) );
+
+		$Locals_end = strlen ( $this->BUF [ $i ] ) - $Locals_str - 1;
+		$Locals_tmp = substr ( $this->BUF [ $i ], $Locals_str, $Locals_end );
+
+		$Global_len = 2 << ( ord ( $this->BUF [ 0  ] { 10 } ) & 0x07 );
+		$Locals_len = 2 << ( ord ( $this->BUF [ $i ] { 10 } ) & 0x07 );
+
+		$Global_rgb = substr ( $this->BUF [ 0  ], 13,
+				3 * ( 2 << ( ord ( $this->BUF [ 0  ] { 10 } ) & 0x07 ) ) );
+		$Locals_rgb = substr ( $this->BUF [ $i ], 13,
+				3 * ( 2 << ( ord ( $this->BUF [ $i ] { 10 } ) & 0x07 ) ) );
+
+		$Locals_ext = "!\xF9\x04" . chr ( ( $this->DIS << 2 ) + 0 ) .
+		chr ( ( $d >> 0 ) & 0xFF ) . chr ( ( $d >> 8 ) & 0xFF ) . "\x0\x0";
+
+		if ( $this->COL > -1 && ord ( $this->BUF [ $i ] { 10 } ) & 0x80 ) {
+			for ( $j = 0; $j < ( 2 << ( ord ( $this->BUF [ $i ] { 10 } ) & 0x07 ) ); $j++ ) {
+				if        (
+						ord ( $Locals_rgb { 3 * $j + 0 } ) == ( $this->COL >>  0 ) & 0xFF &&
+						ord ( $Locals_rgb { 3 * $j + 1 } ) == ( $this->COL >>  8 ) & 0xFF &&
+						ord ( $Locals_rgb { 3 * $j + 2 } ) == ( $this->COL >> 16 ) & 0xFF
+				) {
+					$Locals_ext = "!\xF9\x04" . chr ( ( $this->DIS << 2 ) + 1 ) .
+					chr ( ( $d >> 0 ) & 0xFF ) . chr ( ( $d >> 8 ) & 0xFF ) . chr ( $j ) . "\x0";
+					break;
+				}
+			}
+		}
+		switch ( $Locals_tmp { 0 } ) {
+			case "!":
+				$Locals_img = substr ( $Locals_tmp, 8, 10 );
+				$Locals_tmp = substr ( $Locals_tmp, 18, strlen ( $Locals_tmp ) - 18 );
+				break;
+			case ",":
+				$Locals_img = substr ( $Locals_tmp, 0, 10 );
+				$Locals_tmp = substr ( $Locals_tmp, 10, strlen ( $Locals_tmp ) - 10 );
+				break;
+		}
+		if ( ord ( $this->BUF [ $i ] { 10 } ) & 0x80 && $this->IMG > -1 ) {
+			if ( $Global_len == $Locals_len ) {
+				if ( GIFEncoder::GIFBlockCompare ( $Global_rgb, $Locals_rgb, $Global_len ) ) {
+					$this->GIF .= ( $Locals_ext . $Locals_img . $Locals_tmp );
+				}
+				else {
+					$byte  = ord ( $Locals_img { 9 } );
+					$byte |= 0x80;
+					$byte &= 0xF8;
+					$byte |= ( ord ( $this->BUF [ 0 ] { 10 } ) & 0x07 );
+					$Locals_img { 9 } = chr ( $byte );
+					$this->GIF .= ( $Locals_ext . $Locals_img . $Locals_rgb . $Locals_tmp );
+				}
+			}
+			else {
+				$byte  = ord ( $Locals_img { 9 } );
+				$byte |= 0x80;
+				$byte &= 0xF8;
+				$byte |= ( ord ( $this->BUF [ $i ] { 10 } ) & 0x07 );
+				$Locals_img { 9 } = chr ( $byte );
+				$this->GIF .= ( $Locals_ext . $Locals_img . $Locals_rgb . $Locals_tmp );
+			}
+		}
+		else {
+			$this->GIF .= ( $Locals_ext . $Locals_img . $Locals_tmp );
+		}
+		$this->IMG  = 1;
+	}
+	/*
+	 :::::::::::::::::::::::::::::::::::::::::::::::::::
+	::
+	::        GIFAddFooter...
+	::
+	*/
+	function GIFAddFooter ( ) {
+		$this->GIF .= ";";
+	}
+	/*
+	 :::::::::::::::::::::::::::::::::::::::::::::::::::
+	::
+	::        GIFBlockCompare...
+	::
+	*/
+	function GIFBlockCompare ( $GlobalBlock, $LocalBlock, $Len ) {
+
+		for ( $i = 0; $i < $Len; $i++ ) {
+			if        (
+					$GlobalBlock { 3 * $i + 0 } != $LocalBlock { 3 * $i + 0 } ||
+					$GlobalBlock { 3 * $i + 1 } != $LocalBlock { 3 * $i + 1 } ||
+					$GlobalBlock { 3 * $i + 2 } != $LocalBlock { 3 * $i + 2 }
+			) {
+				return ( 0 );
+			}
+		}
+
+		return ( 1 );
+	}
+	/*
+	 :::::::::::::::::::::::::::::::::::::::::::::::::::
+	::
+	::        GIFWord...
+	::
+	*/
+	function GIFWord ( $int ) {
+
+		return ( chr ( $int & 0xFF ) . chr ( ( $int >> 8 ) & 0xFF ) );
+	}
+	/*
+	 :::::::::::::::::::::::::::::::::::::::::::::::::::
+	::
+	::        GetAnimation...
+	::
+	*/
+	function GetAnimation ( ) {
+		return ( $this->GIF );
+	}
+}
+
 class dz_authnum {
-	//图片对象、宽度、高度、验证码长度
-	private $im;
-	private $im_width;
-	private $im_height;
-	private $len;
-	//随机字符串、y轴坐标值、随机颜色
-	private $randnum;
-	private $randcolor;
-	private $randandgle;
-	private $randsize;
-	//背景色的红绿蓝，默认是浅灰色
-	public $red=255;
-	public $green=255;
-	public $blue=255;
-	//字体文件
-	private $fontfile = "data/ttf/comic_sans_ms.ttf";
+
+	public $width = 120;
+	public $height = 50;
+
+	public $ansize = 4;
+	public $antype = '';
+	public $ansesstion = 'an';
+	
+	public $ananglemax = 10;
+	
 	
 	private $randset;
+	private $randnum;
+	private $randcolor;
+	private $randangle;
+	private $randsize;
 	
-	/**
-	 * 可选设置：验证码类型、干扰点、干扰线、Y轴随机
-	 * 设为 false 表示不启用
-	 **/
-	//默认是大小写数字混合型，1 2 3 分别表示 小写、大写、数字型
-	public $ext_num_type='';
-	public $ext_pixel = false; //干扰点
-	public $ext_line = false; //干扰线
-	public $ext_rand_y= true; //Y轴随机
-	function __construct ($len=4,$im_width='',$im_height=25) 
-	{
-		// 验证码长度、图片宽度、高度是实例化类时必需的数据
-		$this->len = $len; //$im_width = $len * 15;
-		$this->im_width = $im_width;
-		$this->im_height= $im_height;
-		$this->im = imagecreate($im_width,$im_height);
+	private $fontfile = "data/ttf/comic_sans_ms.ttf";
+	
+	private function pre_create(){
+		if($this->width<0) $this->width = 120;
+		if($this->height<0) $this->height = 50;
 		
-		//创建随机
-		for($i = 0; $i < $this->len; $i++)
-		{
-			$this->randandgle[$i] = rand(0,50) - 25;
-			$this->randsize[$i] = rand(18,23);
-		}
+		if($this->antype<0) $this->$antype = 4;
 		
-		//config rand alphe set
 		$an1 = 'abcdefghijklmnopqrstuvwxyz';
 		$an2 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 		$an3 = '0123456789';
 		$this->randset = "";
-		if ($this->ext_num_type == '') $this->randset = $an1.$an2.$an3;
-		if ($this->ext_num_type == 1) $this->randset = $an1;
-		if ($this->ext_num_type == 2) $this->randset = $an2;
-		if ($this->ext_num_type == 3) $this->randset = $an3;
+		if ($this->antype == '') $this->randset = $an1.$an2.$an3;
+		if ($this->antype == 1) $this->randset = $an1;
+		if ($this->antype == 2) $this->randset = $an2;
+		if ($this->antype == 3) $this->randset = $an3;
 		
-	}
-	// 设置图片背景颜色，带方块会椭圆
-	function set_bgcolor () {
-		imagecolorallocate($this->im,$this->red,$this->green,$this->blue);
-			
-		for($i=2;$i;$i--)
+		$this->get_randnum();
+		
+		//for font color
+		for($i = 0; $i < $this->ansize; $i++)
 		{
-			if(rand(0,1))
-			{
-				$aplfx = rand($this->im_width/3,$this->im_width*2/3);
-				$aplfy = rand($this->im_height/3,$this->im_height*2/3);
-				$aplfw = rand(($this->im_width)*2/3,$this->im_width);
-				$aplfh = rand(($this->im_height)*2/3,$this->im_height);
-				$col = imagecolorallocatealpha($this->im, rand(150,250), rand(150,250), rand(150,250), rand(30,80));
-				imagefilledellipse($this->im, $aplfx, $aplfy, $aplfw, $aplfh, $col);
-			}else{
-				$aplfx = rand(0,$this->im_width/2);
-				$aplfy = rand(0,$this->im_height/2);
-				$aplfw = rand(($this->im_width)*2/3,$this->im_width);
-				$aplfh = rand(($this->im_height)*2/3,$this->im_height);
-				$col = imagecolorallocatealpha($this->im, rand(150,250), rand(150,250), rand(150,250), rand(30,80));
-				imagefilledrectangle($this->im,$aplfx,$aplfy,$aplfw,$aplfh,$col);
-			}
+			$this->randcolor[$i]['r'] = rand(0, 100);
+			$this->randcolor[$i]['g'] = rand(0, 100);
+			$this->randcolor[$i]['b'] = rand(0, 100);
+			$this->randcolor[$i]['a'] = rand(50, 100);
+			$this->randangle[$i] = rand(0,20) ;
+			$this->randsize[$i] = rand(20,25);
 		}
-		
 	}
-	// 获得任意位数的随机码
-	function get_randnum () {
+	
+	private function get_randnum () {
 		$randnum = '';
-		for ($i = 0; $i < $this->len; $i++) {
+		for ($i = 0; $i < $this->ansize; $i++) {
 			$start = rand(1,strlen($this->randset) - 1);
 			$randnum .= substr($this->randset,$start,1);
 		}
 		$this->randnum = $randnum;
-		$_SESSION['an'] = strtolower($this->randnum);
+		$_SESSION[$this->ansesstion] = strtolower($this->randnum);
 	}
-
-	function print_text()
+	
+	private function print_text($im,$angle)
 	{
-		for($i = 0; $i < $this->len; $i++)
+		for($i = 0; $i < $this->ansize; $i++)
 		{
-			$this->randcolor[$i] = imagecolorallocatealpha($this->im, rand(0,100), rand(0,100), rand(0,100), rand(5,20));
-			imagettftext($this->im, $this->randsize[$i], $this->randandgle[$i], 20 + $i * 20, 40, $this->randcolor[$i], $this->fontfile, substr($this->randnum, $i ,1));
+			$acolor = imagecolorallocatealpha($im, $this->randcolor[$i]['r'],$this->randcolor[$i]['g'], $this->randcolor[$i]['b'],$this->randcolor[$i]['a']);
+			imagettftext($im, $this->randsize[$i], $this->randangle[$i] + $angle, 5 + $i * 30, $this->height/2 + 5, $acolor, $this->fontfile, substr($this->randnum, $i ,1));
 		}
 	}
 	
-	function print_randalp()
-	{
-		$xbs = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+-=';
-		for($i = rand(30,40); $i>0; $i--)
+	function create(){
+		$imagedata = array();
+		$iamgedelay = array();
+		$this->pre_create();
+		$allcount = 80;
+		for($i = -($allcount/2); $i < ($allcount/2); $i+=3)
 		{
-			$col = imagecolorallocatealpha($this->im, rand(0,100), rand(0,100), rand(0,100), rand(50,100));
-			imagettftext($this->im, rand(5,8), rand(0,100)-50, rand(0,$this->im_width), rand(0,$this->im_height), $col, $this->fontfile, substr($xbs,rand(1,strlen($xbs) - 1),1));
-		}		
-	}
-
-	function create () {
-		$this->set_bgcolor();
-		$this->get_randnum ();
-
-		$this->print_text();
+			$iamgedelay[$i] = 1;
+			$image = imagecreate($this->width,$this->height);
+			imagecolorallocate($image, 0,0,0); // bg
+			if($i>0)
+			{
+				$this->print_text($image, - $i);
+			}else{
+				$this->print_text($image,$i);
+			}
+			
+			imagegif($image);
+			imagedestroy($image);
+			$imagedata[] = ob_get_contents();
+			ob_clean();
+		}
 		
-		$this->print_randalp();
-
-		header("content-type:image/png");
-		imagepng($this->im);
-		imagedestroy($this->im); //释放图像资源
+		Header ('Content-type:image/gif');
+		$git = new GIFEncoder($imagedata, 100, 0, 2, 0, 0, 0, 'bin');
+		echo $git->GetAnimation();
+		
 	}
+	
+	
+	
 }//end class
 
 $an = new dz_authnum(4,120,50);
-$an->ext_num_type='';
-$an->ext_pixel = true; //干扰点
-$an->ext_line = true; //干扰线
-$an->ext_rand_y= true; //Y轴随机
 
 $an->create();
+//echo $_SESSION['an'];
