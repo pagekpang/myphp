@@ -1,11 +1,9 @@
 <?php
-//import sql
+// import sql
 require '../config.php';
-//import mibao util
+// import mibao util
 require_once '../includes/dz_mibaocard.php';
 
-//4 size
-define('DZ_MIBAO_PREFIX', '1078');
-
-//cardid:DZ_MIBAO_PREFIX RAND
-
+//echo dz_mibao_util::rand_cardid();
+$row = dz_mibao_util::rand_row();
+dz_mibao_util::show(dz_mibao_util::rand_cardid(), $row, dz_mibao_util::rand_code($row));
