@@ -1,0 +1,6 @@
+Time                Level   File                                              Line Tag            Msg
+1360036397.5577     Info    /var/www/test/config.php                          11   system         started log system.
+1360036397.5584     Info    /var/www/test/includes/dz_mysql.php               42   dz_mysql       init mysql.
+1360036397.5593     Info    /var/www/test/includes/dz_mysql.php               232  dz_mysql       get_version:5.50
+1360036397.5596     Info    /var/www/test/includes/dz_mysql.php               151  dz_mysql       get_one.sql:select * from dz_mibaocard
+1360036397.5596     Info    /var/www/test/includes/dz_mysql.php               134  dz_mysql       execute.sql:select * from dz_mibaocard LIMIT 0,1;,id:one
